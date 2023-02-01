@@ -43,5 +43,7 @@ void UFPSAnimInstance::UpdateAnimationProperties(float DeltaTime)
 		{
 			LastMovementOffsetYaw = MovementOffsetYaw;
 		}
+
+		bAiming = FPSCharacter->GetAiming();
 	}
 }
