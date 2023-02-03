@@ -16,6 +16,8 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+	void IncrementOverlappedItemCount(int8 Amount);
+
 protected:
 	virtual void BeginPlay() override;
 	
@@ -27,6 +29,8 @@ protected:
 	void TurnAtRate(float Rate);
 	void LookUpAtRate(float Rate);
 	void FireWeapon();
+	void SelectButtonPressed();
+	void SelectButtonReleased();
 
 	//Weapon fire
 	bool GetBeamEndLocation(const FVector& MuzzleSocketLocation, FVector& OutBeamLocation);
@@ -47,6 +51,14 @@ protected:
 	
 	UFUNCTION()
 	void FinishCrosshairBulletFire();
+
+	//Items
+	bool TraceUnderCrosshairs(FHitResult& OutHitResult, FVector& OutHitLocation);
+	void TraceForItems();
+	class AWeapon* SpawnDefaultWeapon();
+	void EquipWeapon(AWeapon* WeaponToEquip);
+	void DropWeapon();
+	void SwapWeapon(AWeapon* WeaponToSwap);
 
 private:	
 	//Components
@@ -141,10 +153,27 @@ private:
 	float AutomaticFireRate = 0.1f;
 	FTimerHandle AutoFireTimer;
 
+	//Items
+	bool bShouldTraceForItmes = false;
+	int8 OverlappedItemCount = 0;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Items, meta = (AllowPrivateAccess))
+	class AItem* TraceHitItemLastFrame;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Items, meta = (AllowPrivateAccess))
+	AItem* TraceHitItem;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess))
+	AWeapon* EquippedWeapon;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess))
+	TSubclassOf<AWeapon> DefaultWeaponClass;
+
 public:
 	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	FORCEINLINE bool GetAiming() const { return bAiming; }
+	FORCEINLINE int8 GetOverlappedItemCount() const {return OverlappedItemCount;}
 
 	UFUNCTION(BlueprintCallable)
 	float GetCrosshairSpreadMultiplier() const;
