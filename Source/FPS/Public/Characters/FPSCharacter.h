@@ -4,7 +4,18 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "AmmoType.h"
 #include "FPSCharacter.generated.h"
+
+UENUM(BlueprintType)
+enum class ECombatState : uint8
+{
+	ECS_Unoccupied UMETA(DisplayName = "Unoccupied"),
+	ECS_FireTimerInProgress UMETA(DisplayName = "FireTimerInProgress"),
+	ECS_Reloading UMETA(DisplayName = "Reloading"),
+
+	ECS_MAX UMETA(DisplayName = "DefaultMAX")
+};
 
 UCLASS()
 class FPS_API AFPSCharacter : public ACharacter
@@ -17,6 +28,8 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	void IncrementOverlappedItemCount(int8 Amount);
+	FVector GetCameraInterpLocation();
+	void GetPickUpItem(class AItem* Item);
 
 protected:
 	virtual void BeginPlay() override;
@@ -31,6 +44,7 @@ protected:
 	void FireWeapon();
 	void SelectButtonPressed();
 	void SelectButtonReleased();
+	void ReloadButtonPressed();
 
 	//Weapon fire
 	bool GetBeamEndLocation(const FVector& MuzzleSocketLocation, FVector& OutBeamLocation);
@@ -41,6 +55,9 @@ protected:
 	void CalculateCrosshairSpread(float DeltaTime);
 	void FireButtonPressed();
 	void FireButtonReleased();
+	void PlayFireSound();
+	void SendBullet();
+	void PlayGunFireMontage();
 
 	//Timer
 	void StartFireTimer();
@@ -56,9 +73,23 @@ protected:
 	bool TraceUnderCrosshairs(FHitResult& OutHitResult, FVector& OutHitLocation);
 	void TraceForItems();
 	class AWeapon* SpawnDefaultWeapon();
-	void EquipWeapon(AWeapon* WeaponToEquip);
+	void EquipWeapon(class AWeapon* WeaponToEquip);
 	void DropWeapon();
 	void SwapWeapon(AWeapon* WeaponToSwap);
+	void InitializeAmmoMap();
+	bool WeaponHasAmmo();
+	void ReloadWeapon();
+	bool CarryingAmmo();
+
+	//Anim notify
+	UFUNCTION(BlueprintCallable)
+	void FinishReloading();
+
+	UFUNCTION(BlueprintCallable)
+	void GrabClip();
+
+	UFUNCTION(BlueprintCallable)
+	void ReleaseClip();
 
 private:	
 	//Components
@@ -70,6 +101,9 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
 	class USoundCue* FireSound;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess))
+	USceneComponent* HandSceneComponent;
 
 	//Particles
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
@@ -116,6 +150,9 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
 	class UAnimMontage* HipFireMontage;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	UAnimMontage* ReloadMontage;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess))
 	bool bAiming = false;
 
@@ -158,7 +195,7 @@ private:
 	int8 OverlappedItemCount = 0;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Items, meta = (AllowPrivateAccess))
-	class AItem* TraceHitItemLastFrame;
+	AItem* TraceHitItemLastFrame;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Items, meta = (AllowPrivateAccess))
 	AItem* TraceHitItem;
@@ -168,6 +205,27 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess))
 	TSubclassOf<AWeapon> DefaultWeaponClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	float CameraInterpDistance = 150.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	float CameraInterpElevation = 40.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	TMap<EAmmoType, int32> AmmoMap;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Item, meta = (AllowPrivateAccess))
+	int32 Starting9mmAmmo = 85;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Item, meta = (AllowPrivateAccess))
+	int32 StartingARAmmo = 120;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess))
+	ECombatState CombatState = ECombatState::ECS_Unoccupied;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess))
+	FTransform ClipTransform;
 
 public:
 	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }

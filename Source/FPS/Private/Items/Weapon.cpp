@@ -30,11 +30,29 @@ void AWeapon::ThrowWeapon()
 
 	float RandomRotation = FMath::FRandRange(30.f, 60.f);
 	ImpulseDirection = ImpulseDirection.RotateAngleAxis(RandomRotation, FVector(0.f, 0.f, 1.f));
-	ImpulseDirection *= 20000.f;
+	ImpulseDirection *= 2000.f;
 	GetItemMesh()->AddImpulse(ImpulseDirection);
 
 	bFalling = true;
 	GetWorldTimerManager().SetTimer(ThrowWeaponTimer, this, &AWeapon::StopFalling, ThrowWeaponTime);
+}
+
+void AWeapon::DecrementAmmo()
+{
+	if (Ammo - 1 < 0)
+	{
+		Ammo = 0;
+	}
+	else
+	{
+		--Ammo;
+	}
+}
+
+void AWeapon::ReloadAmmo(int32 Amount)
+{
+	checkf(Ammo + Amount <= MagazineCapacity, TEXT("Attempted to reload with more than magazine capacity!"));
+	Ammo += Amount;
 }
 
 void AWeapon::StopFalling()

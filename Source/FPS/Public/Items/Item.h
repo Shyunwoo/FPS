@@ -40,6 +40,7 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	void SetItemState(EItemState State);
+	void StartItemCurve(class AFPSCharacter* Char);
 
 protected:
 	virtual void BeginPlay() override;
@@ -52,6 +53,9 @@ protected:
 
 	void SetActiveStars();
 	void SetItemProperties(EItemState State);
+	
+	void FinishInterping();
+	void ItemInterp(float DeltaTime);
 
 private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
@@ -81,10 +85,45 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
 	TArray<bool> ActiveStars;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	class UCurveFloat* ItemZCurve;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	UCurveFloat* ItemScaleCurve;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	FVector ItemInterpStartLocation {FVector(0.f)};
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	FVector CameraTargetLocation {FVector(0.f)};
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	bool bInterping = false;
+
+	FTimerHandle ItemInterpTimer;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	float ZCurveTime = 0.7f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	AFPSCharacter* Character;
+
+	float ItemInterpX = 0.f;
+	float ItemInterpY = 0.f;
+	float interpInitialYawOffset = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Item, meta = (AllowPrivateAccess))
+	class USoundCue* PickUpSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Item, meta = (AllowPrivateAccess))
+	USoundCue* EquipSound;
+
 public:
 	FORCEINLINE UWidgetComponent* GetPickupWidget() const { return PickupWidget; }
 	FORCEINLINE UBoxComponent* GetCollisionBox() const { return CollisionBox; }
 	FORCEINLINE USphereComponent* GetAreaSphere() const {return AreaSphere;}
 	FORCEINLINE EItemState GetItemState() const { return ItemState; }
 	FORCEINLINE USkeletalMeshComponent* GetItemMesh() const { return ItemMesh; }
+	FORCEINLINE USoundCue* GetPickUpSound() const {return PickUpSound;}
+	FORCEINLINE USoundCue* GetEquipSound() const { return EquipSound; }
 };
