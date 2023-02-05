@@ -15,6 +15,7 @@
 #include "Items/Weapon.h"
 #include "Components/SphereComponent.h"
 #include "Components/BoxComponent.h"
+#include "Components/CapsuleComponent.h"
 
 AFPSCharacter::AFPSCharacter()
 {
@@ -24,7 +25,7 @@ AFPSCharacter::AFPSCharacter()
 	CameraBoom->SetupAttachment(GetRootComponent());
 	CameraBoom->TargetArmLength = 180.f;
 	CameraBoom->bUsePawnControlRotation = true;
-	CameraBoom->SocketOffset = FVector(0.f, 50.f, 70.f);
+	CameraBoom->SocketOffset = FVector(0.f, 50.f, 45.f);
 
 	FollowCamera = CreateDefaultSubobject <UCameraComponent>(TEXT("FollowCamera"));
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
@@ -53,6 +54,7 @@ void AFPSCharacter::BeginPlay()
 	}
 	EquipWeapon(SpawnDefaultWeapon());
 	InitializeAmmoMap();
+	GetCharacterMovement()->MaxWalkSpeed = BaseMovementSpeed;
 }
 
 void AFPSCharacter::Tick(float DeltaTime)
@@ -63,6 +65,7 @@ void AFPSCharacter::Tick(float DeltaTime)
 	SetLookRates();
 	CalculateCrosshairSpread(DeltaTime);
 	TraceForItems();
+	InterpCapsuleHalfHeight(DeltaTime);
 }
 
 void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -78,7 +81,7 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 		PlayerInputComponent->BindAxis(FName("TurnRate"), this, &AFPSCharacter::TurnAtRate);
 		PlayerInputComponent->BindAxis(FName("LookUpRate"), this, &AFPSCharacter::LookUpAtRate);
 
-		PlayerInputComponent->BindAction(FName("Jump"), EInputEvent::IE_Pressed, this, &ACharacter::Jump);
+		PlayerInputComponent->BindAction(FName("Jump"), EInputEvent::IE_Pressed, this, &AFPSCharacter::Jump);
 		PlayerInputComponent->BindAction(FName("FireButton"), EInputEvent::IE_Pressed, this, &AFPSCharacter::FireButtonPressed);
 		PlayerInputComponent->BindAction(FName("FireButton"), EInputEvent::IE_Released, this, &AFPSCharacter::FireButtonReleased);
 		PlayerInputComponent->BindAction(FName("AimingButton"), EInputEvent::IE_Pressed, this, &AFPSCharacter::AimingButtonPressed);
@@ -86,6 +89,7 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 		PlayerInputComponent->BindAction(FName("Select"), EInputEvent::IE_Pressed, this, &AFPSCharacter::SelectButtonPressed);
 		PlayerInputComponent->BindAction(FName("Select"), EInputEvent::IE_Released, this, &AFPSCharacter::SelectButtonReleased);
 		PlayerInputComponent->BindAction(FName("ReloadButton"), EInputEvent::IE_Pressed, this, &AFPSCharacter::ReloadButtonPressed);
+		PlayerInputComponent->BindAction(FName("Crouch"), EInputEvent::IE_Pressed, this, &AFPSCharacter::CrouchButtonPressed);
 	}
 }
 
@@ -197,6 +201,19 @@ void AFPSCharacter::LookUpAtRate(float Rate)
 	}
 }
 
+void AFPSCharacter::Jump()
+{
+	if (bCrouching)
+	{
+		bCrouching = false;
+		GetCharacterMovement()->MaxWalkSpeed = BaseMovementSpeed;
+	}
+	else
+	{
+		ACharacter::Jump();
+	}
+}
+
 void AFPSCharacter::FireWeapon()
 {
 	if (EquippedWeapon == nullptr) return;
@@ -233,6 +250,24 @@ void AFPSCharacter::SelectButtonReleased()
 void AFPSCharacter::ReloadButtonPressed()
 {
 	ReloadWeapon();
+}
+
+void AFPSCharacter::CrouchButtonPressed()
+{
+	if (!GetCharacterMovement()->IsFalling())
+	{
+		bCrouching = !bCrouching;
+	}
+	if (bCrouching)
+	{
+		GetCharacterMovement()->MaxWalkSpeed = CrouchMovementSpeed;
+		GetCharacterMovement()->GroundFriction = CrouchingGroundFriction;
+	}
+	else
+	{
+		GetCharacterMovement()->MaxWalkSpeed = BaseMovementSpeed;
+		GetCharacterMovement()->GroundFriction = BaseGroundFriction;
+	}
 }
 
 bool AFPSCharacter::GetBeamEndLocation(const FVector& MuzzleSocketLocation, FVector& OutBeamLocation)
@@ -580,7 +615,7 @@ void AFPSCharacter::ReloadWeapon()
 	if (CombatState != ECombatState::ECS_Unoccupied) return;
 	if (EquippedWeapon == nullptr) return;
 
-	if (CarryingAmmo())
+	if (CarryingAmmo() && !EquippedWeapon->ClipIsFull())
 	{
 		CombatState = ECombatState::ECS_Reloading;
 		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
@@ -655,6 +690,25 @@ void AFPSCharacter::ReleaseClip()
 	if (EquippedWeapon == nullptr) return;
 
 	EquippedWeapon->SetMovingClip(false);
+}
+
+void AFPSCharacter::InterpCapsuleHalfHeight(float DeltaTime)
+{
+	float TargetCapsuleHalfHeight{};
+	if (bCrouching)
+	{
+		TargetCapsuleHalfHeight = CrouchingCapsuleHalfHeight;
+	}
+	else
+	{
+		TargetCapsuleHalfHeight = StandingCapsuleHalfHeight;
+	}
+	const float InterpHalfHeight{ FMath::FInterpTo(GetCapsuleComponent()->GetScaledCapsuleHalfHeight(), TargetCapsuleHalfHeight, DeltaTime, 20.f)};
+
+	const float DeltaCapsuleHalfHeight{ InterpHalfHeight - GetCapsuleComponent()->GetScaledCapsuleHalfHeight() };
+	const FVector MeshOffset{ 0.f, 0.f, -DeltaCapsuleHalfHeight };
+	GetMesh() ->AddLocalOffset(MeshOffset);
+	GetCapsuleComponent()->SetCapsuleHalfHeight(InterpHalfHeight);
 }
 
 float AFPSCharacter::GetCrosshairSpreadMultiplier() const

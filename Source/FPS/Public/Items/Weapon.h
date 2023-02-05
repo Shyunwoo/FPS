@@ -31,6 +31,7 @@ public:
 	void ThrowWeapon();
 	void DecrementAmmo();
 	void ReloadAmmo(int32 Amount);
+	bool ClipIsFull();
 
 protected:
 	void StopFalling();

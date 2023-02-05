@@ -31,6 +31,9 @@ public:
 	FVector GetCameraInterpLocation();
 	void GetPickUpItem(class AItem* Item);
 
+	UFUNCTION(BlueprintCallable)
+	float GetCrosshairSpreadMultiplier() const;
+
 protected:
 	virtual void BeginPlay() override;
 	
@@ -41,10 +44,12 @@ protected:
 	void LookUp(float Value);
 	void TurnAtRate(float Rate);
 	void LookUpAtRate(float Rate);
+	virtual void Jump() override;
 	void FireWeapon();
 	void SelectButtonPressed();
 	void SelectButtonReleased();
 	void ReloadButtonPressed();
+	void CrouchButtonPressed();
 
 	//Weapon fire
 	bool GetBeamEndLocation(const FVector& MuzzleSocketLocation, FVector& OutBeamLocation);
@@ -90,6 +95,8 @@ protected:
 
 	UFUNCTION(BlueprintCallable)
 	void ReleaseClip();
+
+	void InterpCapsuleHalfHeight(float DeltaTime);
 
 private:	
 	//Components
@@ -227,12 +234,35 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess))
 	FTransform ClipTransform;
 
+	//Crouching
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Movement, meta = (AllowPrivateAccess))
+	bool bCrouching = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Movement, meta = (AllowPrivateAccess))
+	float CrouchMovementSpeed = 300.f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Movement, meta = (AllowPrivateAccess))
+	float BaseMovementSpeed = 600.f;
+
+	float CurrentCapsuleHalfHeight = 0.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Movement, meta = (AllowPrivateAccess))
+	float StandingCapsuleHalfHeight = 88.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Movement, meta = (AllowPrivateAccess))
+	float CrouchingCapsuleHalfHeight = 44.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Movement, meta = (AllowPrivateAccess))
+	float BaseGroundFriction = 2.0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Movement, meta = (AllowPrivateAccess))
+	float CrouchingGroundFriction = 100.f;
+
 public:
 	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	FORCEINLINE bool GetAiming() const { return bAiming; }
 	FORCEINLINE int8 GetOverlappedItemCount() const {return OverlappedItemCount;}
-
-	UFUNCTION(BlueprintCallable)
-	float GetCrosshairSpreadMultiplier() const;
+	FORCEINLINE ECombatState GetCombatState() const { return CombatState; }
+	FORCEINLINE bool GetCrouching() const {return bCrouching;}
 };
