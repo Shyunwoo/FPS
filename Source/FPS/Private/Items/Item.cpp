@@ -7,6 +7,8 @@
 #include "Components/SphereComponent.h"
 #include "Characters/FPSCharacter.h"
 #include "Camera/CameraComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundCue.h"
 
 AItem::AItem()
 {
@@ -177,6 +179,7 @@ void AItem::SetItemProperties(EItemState State)
 
 		CollisionBox->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 		CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		break;
 	default:
 		break;
 	}
@@ -187,6 +190,7 @@ void AItem::FinishInterping()
 	bInterping = false;
 	if (Character)
 	{
+		Character->IncrementInterpLocItemCount(InterpLocIndex, -1);
 		Character->GetPickUpItem(this);
 	}
 	SetActorScale3D(FVector(1.f));
@@ -201,7 +205,7 @@ void AItem::ItemInterp(float DeltaTime)
 		const float ElapsedTime = GetWorldTimerManager().GetTimerElapsed(ItemInterpTimer);
 		const float CurveValue = ItemZCurve->GetFloatValue(ElapsedTime);
 		FVector ItemLocation = ItemInterpStartLocation;
-		const FVector CameraInterpLocation = Character->GetCameraInterpLocation();
+		const FVector CameraInterpLocation = GetInterpLocation();
 		const FVector ItemToCamera = FVector(0.f, 0.f, (CameraInterpLocation- ItemLocation).Z);
 		const float DeltaZ = ItemToCamera.Size();
 
@@ -228,6 +232,57 @@ void AItem::ItemInterp(float DeltaTime)
 	}
 }
 
+FVector AItem::GetInterpLocation()
+{
+	if (Character == nullptr) return FVector(0.f);
+
+	switch (ItemType)
+	{
+	case EItemType::EIT_Ammo:
+		return Character->GetInterpLocation(InterpLocIndex).SceneComponent->GetComponentLocation();
+		break;
+	case EItemType::EIT_Weapon:
+		return Character->GetInterpLocation(0).SceneComponent->GetComponentLocation();
+		break;
+	case EItemType::EIT_MAX:
+		break;
+	default:
+		break;
+	}
+
+	return FVector(0.f);
+}
+
+void AItem::PlayPickUpSound()
+{
+	if (Character)
+	{
+		if (Character->GetShouldPlayPickUpSound())
+		{
+			Character->StartPickUpSoundTimer();
+			if (PickUpSound)
+			{
+				UGameplayStatics::PlaySound2D(this, PickUpSound);
+			}
+		}
+	}
+}
+
+void AItem::PlayEquipSound()
+{
+	if (Character)
+	{
+		if (Character->GetShouldPlayEquipSound())
+		{
+			Character->StartEquipSoundTimer();
+			if (EquipSound)
+			{
+				UGameplayStatics::PlaySound2D(this, EquipSound);
+			}
+		}
+	}
+}
+
 void AItem::SetItemState(EItemState State)
 {
 	ItemState = State;
@@ -237,6 +292,12 @@ void AItem::SetItemState(EItemState State)
 void AItem::StartItemCurve(AFPSCharacter* Char)
 {
 	Character = Char;
+
+	InterpLocIndex = Character->GetInterpLocationIndex();
+	Character->IncrementInterpLocItemCount(InterpLocIndex, 1);
+
+	PlayPickUpSound();
+
 	if (Character)
 	{
 		ItemInterpStartLocation = GetActorLocation();

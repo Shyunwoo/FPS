@@ -17,6 +17,18 @@ enum class ECombatState : uint8
 	ECS_MAX UMETA(DisplayName = "DefaultMAX")
 };
 
+USTRUCT(BlueprintType)
+struct FInterpLocation
+{
+	GENERATED_BODY()
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	USceneComponent* SceneComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+	int32 ItemCount;
+};
+
 UCLASS()
 class FPS_API AFPSCharacter : public ACharacter
 {
@@ -28,8 +40,13 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
 	void IncrementOverlappedItemCount(int8 Amount);
-	FVector GetCameraInterpLocation();
 	void GetPickUpItem(class AItem* Item);
+	int32 GetInterpLocationIndex();
+	FInterpLocation GetInterpLocation(int32 Index);
+	void IncrementInterpLocItemCount(int32 Index, int32 Amount);
+
+	void StartPickUpSoundTimer();
+	void StartEquipSoundTimer();
 
 	UFUNCTION(BlueprintCallable)
 	float GetCrosshairSpreadMultiplier() const;
@@ -63,6 +80,9 @@ protected:
 	void PlayFireSound();
 	void SendBullet();
 	void PlayGunFireMontage();
+	void Aim();
+	void StopAiming();
+	void InitializeInterpLocations();
 
 	//Timer
 	void StartFireTimer();
@@ -85,6 +105,7 @@ protected:
 	bool WeaponHasAmmo();
 	void ReloadWeapon();
 	bool CarryingAmmo();
+	void PickUpAmmo(class AAmmo* Ammo);
 
 	//Anim notify
 	UFUNCTION(BlueprintCallable)
@@ -109,8 +130,29 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
 	class USoundCue* FireSound;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess))
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess))
 	USceneComponent* HandSceneComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess))
+	USceneComponent* WeaponInterpCom;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess))
+	USceneComponent* InterpCom1;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess))
+	USceneComponent* InterpCom2;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess))
+	USceneComponent* InterpCom3;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess))
+	USceneComponent* InterpCom4;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess))
+	USceneComponent* InterpCom5;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess))
+	USceneComponent* InterpCom6;
 
 	//Particles
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
@@ -148,10 +190,10 @@ private:
 	float MouseHipLookUpRate = 1.0f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess), meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
-	float MouseAimingTurnRate = 0.2f;
+	float MouseAimingTurnRate = 0.6f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess), meta = (ClampMin = "0.0", ClampMax = "1.0", UIMin = "0.0", UIMax = "1.0"))
-	float MouseAimingLookUpRate = 0.2f;
+	float MouseAimingLookUpRate = 0.6f;
 
 	//Anim montage
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
@@ -167,8 +209,13 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
 	float ZoomInterpSpeed = 20.f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
 	float CameraDefaultFOV = 0.f;
-	float CameraZoomedFOV = 35.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	float CameraZoomedFOV = 25.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
 	float CameraCurrentFOV = 0.f;
 
 	//Crosshair
@@ -234,6 +281,9 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess))
 	FTransform ClipTransform;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (AllowPrivateAccess))
+	TArray<FInterpLocation> InterpLocations;
+
 	//Crouching
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Movement, meta = (AllowPrivateAccess))
 	bool bCrouching = false;
@@ -258,6 +308,22 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Movement, meta = (AllowPrivateAccess))
 	float CrouchingGroundFriction = 100.f;
 
+	bool bAimingButtonPressed = false;
+
+	//Sound
+	FTimerHandle PickUpSoundTimer;
+	FTimerHandle EquipSoundTimer;
+	bool bShouldPlayPickUpSound = true;
+	bool bShouldPlayEquipSound = true;
+	void ResetPickUpSoundTimer();
+	void ResetEquipSoundTimer();
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	float PickUpSoundResetTime = 0.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	float EquipSoundResetTime = 0.2f;
+
 public:
 	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
@@ -265,4 +331,6 @@ public:
 	FORCEINLINE int8 GetOverlappedItemCount() const {return OverlappedItemCount;}
 	FORCEINLINE ECombatState GetCombatState() const { return CombatState; }
 	FORCEINLINE bool GetCrouching() const {return bCrouching;}
+	FORCEINLINE bool GetShouldPlayPickUpSound() const { return bShouldPlayPickUpSound; }
+	FORCEINLINE bool GetShouldPlayEquipSound() const { return bShouldPlayEquipSound; }
 };
