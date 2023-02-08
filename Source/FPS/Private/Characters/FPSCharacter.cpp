@@ -69,6 +69,10 @@ void AFPSCharacter::BeginPlay()
 		CameraCurrentFOV = CameraDefaultFOV;
 	}
 	EquipWeapon(SpawnDefaultWeapon());
+	Inventory.Add(EquippedWeapon);
+	EquippedWeapon->DisableCustomDepth();
+	EquippedWeapon->DisableGlowMaterial();
+
 	InitializeAmmoMap();
 	GetCharacterMovement()->MaxWalkSpeed = BaseMovementSpeed;
 	InitializeInterpLocations();
@@ -131,7 +135,14 @@ void AFPSCharacter::GetPickUpItem(AItem* Item)
 	AWeapon* Weapon = Cast<AWeapon>(Item);
 	if (Weapon)
 	{
-		SwapWeapon(Weapon);
+		if (Inventory.Num() < Inventory_Capacity)
+		{
+			Inventory.Add(Weapon);
+		}
+		else
+		{
+			SwapWeapon(Weapon);
+		}
 	}
 
 	AAmmo* Ammo = Cast<AAmmo>(Item);
@@ -582,6 +593,7 @@ void AFPSCharacter::TraceForItems()
 			if (TraceHitItem && TraceHitItem->GetPickupWidget())
 			{
 				TraceHitItem->GetPickupWidget()->SetVisibility(true);
+				TraceHitItem->EnableCustomDepth();
 			}
 
 			if (TraceHitItemLastFrame && TraceHitItemLastFrame->GetPickupWidget())
@@ -589,6 +601,7 @@ void AFPSCharacter::TraceForItems()
 				if (TraceHitItem != TraceHitItemLastFrame)
 				{
 					TraceHitItemLastFrame->GetPickupWidget()->SetVisibility(false);
+					TraceHitItemLastFrame->DisableCustomDepth();
 				}
 					
 			}		
@@ -598,6 +611,7 @@ void AFPSCharacter::TraceForItems()
 	else if (TraceHitItemLastFrame && TraceHitItemLastFrame->GetPickupWidget())
 	{
 		TraceHitItemLastFrame->GetPickupWidget()->SetVisibility(false);
+		TraceHitItemLastFrame->DisableCustomDepth();
 	}
 }
 

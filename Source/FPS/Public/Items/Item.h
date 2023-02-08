@@ -52,6 +52,10 @@ public:
 	void StartItemCurve(class AFPSCharacter* Char);
 	void PlayEquipSound();
 
+	virtual void EnableCustomDepth();
+	virtual void DisableCustomDepth();
+	void DisableGlowMaterial();
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -67,8 +71,14 @@ protected:
 	void FinishInterping();
 	void ItemInterp(float DeltaTime);
 	FVector GetInterpLocation();
-
 	void PlayPickUpSound();
+
+	virtual void InitializeCustomDepth();
+	virtual void OnConstruction(const FTransform& Transform) override;
+	void EnableGlowMaterial();
+	void UpdatePulse();
+	void ResetPulseTimer();
+	void StartPulseTimer();
 
 private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
@@ -136,6 +146,43 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
 	int32 InterpLocIndex = 0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Item, meta = (AllowPrivateAccess))
+	int32 MaterialIndex = 0;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	UMaterialInstanceDynamic* DynamicMaterialInstance;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Item, meta = (AllowPrivateAccess))
+	UMaterialInstance* MaterialInstance;
+
+	bool bCanChangeCustomDepth = true;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	class UCurveVector* PulseCurve;
+
+	FTimerHandle PulseTimer;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	float PulseCurveTime = 5.f;
+
+	UPROPERTY(VisibleAnywhere, Category = Item, meta = (AllowPrivateAccess))
+	float GlowAmount = 150.f;
+
+	UPROPERTY(VisibleAnywhere, Category = Item, meta = (AllowPrivateAccess))
+	float FresnelExponent = 3.f;
+
+	UPROPERTY(VisibleAnywhere, Category = Item, meta = (AllowPrivateAccess))
+	float FresnelReflectFraction = 4.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	UCurveVector* InterpPulseCurve;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Inventory, meta = (AllowPrivateAccess))
+	UTexture2D* IconBackGround;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Inventory, meta = (AllowPrivateAccess))
+	UTexture2D* IconItem;
 
 public:
 	FORCEINLINE UWidgetComponent* GetPickupWidget() const { return PickupWidget; }

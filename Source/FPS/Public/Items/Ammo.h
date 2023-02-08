@@ -19,6 +19,9 @@ public:
 	AAmmo();
 	virtual void Tick(float DeltaTime) override;
 
+	virtual void EnableCustomDepth() override;
+	virtual void DisableCustomDepth() override;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetItemProperties(EItemState State) override;
