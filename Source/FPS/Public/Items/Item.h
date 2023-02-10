@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Engine/DataTable.h"
 #include "Item.generated.h"
 
 UENUM(BlueprintType)
@@ -39,6 +40,30 @@ enum class EItemType : uint8
 	EIT_MAX UMETA(DisplayName = "DefaultMAX")
 };
 
+USTRUCT(BlueprintType)
+struct FItemRarityTable : public FTableRowBase
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FLinearColor GlowColor;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FLinearColor LightColor;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FLinearColor DarkColor;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 NumberOfStars;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UTexture2D* IconBackGround;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	int32 CustomDepthStencil;
+};
+
 UCLASS()
 class FPS_API AItem : public AActor
 {
@@ -49,8 +74,8 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	void SetItemState(EItemState State);
-	void StartItemCurve(class AFPSCharacter* Char);
-	void PlayEquipSound();
+	void StartItemCurve(class AFPSCharacter* Char, bool bForcePlaySound = false);
+	void PlayEquipSound(bool bForcePlaySound = false);
 
 	virtual void EnableCustomDepth();
 	virtual void DisableCustomDepth();
@@ -71,7 +96,7 @@ protected:
 	void FinishInterping();
 	void ItemInterp(float DeltaTime);
 	FVector GetInterpLocation();
-	void PlayPickUpSound();
+	void PlayPickUpSound(bool bForcePlaySound = false);
 
 	virtual void InitializeCustomDepth();
 	virtual void OnConstruction(const FTransform& Transform) override;
@@ -99,8 +124,8 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadwrite, Category = Item, meta = (AllowPrivateAccess))
 	int32 ItemCount = 0;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
-	EItemRarity ItemRarity = EItemRarity::EIR_Common;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Rarity, meta = (AllowPrivateAccess))
+	EItemRarity ItemRarity = EItemRarity::EIR_Damaged;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
 	EItemState ItemState = EItemState::EIS_PickUp;
@@ -167,22 +192,46 @@ private:
 	float PulseCurveTime = 5.f;
 
 	UPROPERTY(VisibleAnywhere, Category = Item, meta = (AllowPrivateAccess))
-	float GlowAmount = 150.f;
+	float GlowAmount = 100.f;
 
 	UPROPERTY(VisibleAnywhere, Category = Item, meta = (AllowPrivateAccess))
 	float FresnelExponent = 3.f;
 
 	UPROPERTY(VisibleAnywhere, Category = Item, meta = (AllowPrivateAccess))
-	float FresnelReflectFraction = 4.f;
+	float FresnelReflectFraction = 3.f;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
 	UCurveVector* InterpPulseCurve;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Inventory, meta = (AllowPrivateAccess))
-	UTexture2D* IconBackGround;
+	UTexture2D* IconItem;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Inventory, meta = (AllowPrivateAccess))
-	UTexture2D* IconItem;
+	UTexture2D* AmmoItem;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	int32 SlotIndex = 0;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Item, meta = (AllowPrivateAccess))
+	bool bCharacterInventoryFull = false;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = DataTable, meta = (AllowPrivateAccess))
+	class UDataTable* ItemRarityDataTable;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Rarity, meta = (AllowPrivateAccess))
+	FLinearColor GlowColor;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Rarity, meta = (AllowPrivateAccess))
+	FLinearColor LightColor;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Rarity, meta = (AllowPrivateAccess))
+	FLinearColor DarkColor;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Rarity, meta = (AllowPrivateAccess))
+	int32 NumberOfStars;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Rarity, meta = (AllowPrivateAccess))
+	UTexture2D* IconBackGround;
 
 public:
 	FORCEINLINE UWidgetComponent* GetPickupWidget() const { return PickupWidget; }
@@ -194,4 +243,8 @@ public:
 	FORCEINLINE USoundCue* GetEquipSound() const { return EquipSound; }
 	FORCEINLINE int32 GetItemCount() const { return ItemCount; }
 	FORCEINLINE EItemType GetItemType() const { return ItemType; }
+	FORCEINLINE int32 GetSlotIndex() const { return SlotIndex; }
+	FORCEINLINE void SetSlotIndex(int32 Index) { SlotIndex = Index; }
+	FORCEINLINE void SetCharacter(AFPSCharacter* Char) { Character = Char; }
+	FORCEINLINE void SetCharacterInventoryFull(bool bFull) { bCharacterInventoryFull = bFull; }
 };

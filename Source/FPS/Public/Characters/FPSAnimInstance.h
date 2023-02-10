@@ -80,6 +80,9 @@ private:
 	bool bCrouching = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Crouch, meta = (AllowPrivateAccess))
+	bool bEquipping = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Crouch, meta = (AllowPrivateAccess))
 	bool bTurningInPlace = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))

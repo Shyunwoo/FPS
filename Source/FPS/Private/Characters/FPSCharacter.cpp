@@ -70,8 +70,10 @@ void AFPSCharacter::BeginPlay()
 	}
 	EquipWeapon(SpawnDefaultWeapon());
 	Inventory.Add(EquippedWeapon);
+	EquippedWeapon->SetSlotIndex(0);
 	EquippedWeapon->DisableCustomDepth();
 	EquippedWeapon->DisableGlowMaterial();
+	EquippedWeapon->SetCharacter(this);
 
 	InitializeAmmoMap();
 	GetCharacterMovement()->MaxWalkSpeed = BaseMovementSpeed;
@@ -111,6 +113,12 @@ void AFPSCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 		PlayerInputComponent->BindAction(FName("Select"), EInputEvent::IE_Released, this, &AFPSCharacter::SelectButtonReleased);
 		PlayerInputComponent->BindAction(FName("ReloadButton"), EInputEvent::IE_Pressed, this, &AFPSCharacter::ReloadButtonPressed);
 		PlayerInputComponent->BindAction(FName("Crouch"), EInputEvent::IE_Pressed, this, &AFPSCharacter::CrouchButtonPressed);
+		PlayerInputComponent->BindAction(FName("FKey"), EInputEvent::IE_Pressed, this, &AFPSCharacter::FKeyPressed);
+		PlayerInputComponent->BindAction(FName("1Key"), EInputEvent::IE_Pressed, this, &AFPSCharacter::OneKeyPressed);
+		PlayerInputComponent->BindAction(FName("2Key"), EInputEvent::IE_Pressed, this, &AFPSCharacter::TwoKeyPressed);
+		PlayerInputComponent->BindAction(FName("3Key"), EInputEvent::IE_Pressed, this, &AFPSCharacter::ThreeKeyPressed);
+		PlayerInputComponent->BindAction(FName("4Key"), EInputEvent::IE_Pressed, this, &AFPSCharacter::FourKeyPressed);
+		PlayerInputComponent->BindAction(FName("5Key"), EInputEvent::IE_Pressed, this, &AFPSCharacter::FiveKeyPressed);
 	}
 }
 
@@ -137,7 +145,9 @@ void AFPSCharacter::GetPickUpItem(AItem* Item)
 	{
 		if (Inventory.Num() < Inventory_Capacity)
 		{
+			Weapon->SetSlotIndex(Inventory.Num());
 			Inventory.Add(Weapon);
+			Weapon->SetItemState(EItemState::EIS_PickedUp);
 		}
 		else
 		{
@@ -254,9 +264,11 @@ void AFPSCharacter::FireWeapon()
 
 void AFPSCharacter::SelectButtonPressed()
 {
+	if (CombatState != ECombatState::ECS_Unoccupied) return;
 	if (TraceHitItem)
 	{
-		TraceHitItem->StartItemCurve(this);
+		TraceHitItem->StartItemCurve(this, true);
+		TraceHitItem = nullptr;
 	}
 }
 
@@ -286,6 +298,48 @@ void AFPSCharacter::CrouchButtonPressed()
 		GetCharacterMovement()->MaxWalkSpeed = BaseMovementSpeed;
 		GetCharacterMovement()->GroundFriction = BaseGroundFriction;
 	}
+}
+
+void AFPSCharacter::FKeyPressed()
+{
+	if (EquippedWeapon->GetSlotIndex() == 0) return;
+
+	ExChangeInventoryItems(EquippedWeapon->GetSlotIndex(), 0);
+}
+
+void AFPSCharacter::OneKeyPressed()
+{
+	if (EquippedWeapon->GetSlotIndex() == 1) return;
+
+	ExChangeInventoryItems(EquippedWeapon->GetSlotIndex(), 1);
+}
+
+void AFPSCharacter::TwoKeyPressed()
+{
+	if (EquippedWeapon->GetSlotIndex() == 2) return;
+
+	ExChangeInventoryItems(EquippedWeapon->GetSlotIndex(), 2);
+}
+
+void AFPSCharacter::ThreeKeyPressed()
+{
+	if (EquippedWeapon->GetSlotIndex() == 3) return;
+
+	ExChangeInventoryItems(EquippedWeapon->GetSlotIndex(), 3);
+}
+
+void AFPSCharacter::FourKeyPressed()
+{
+	if (EquippedWeapon->GetSlotIndex() == 4) return;
+
+	ExChangeInventoryItems(EquippedWeapon->GetSlotIndex(), 4);
+}
+
+void AFPSCharacter::FiveKeyPressed()
+{
+	if (EquippedWeapon->GetSlotIndex() == 5) return;
+
+	ExChangeInventoryItems(EquippedWeapon->GetSlotIndex(), 5);
 }
 
 bool AFPSCharacter::GetBeamEndLocation(const FVector& MuzzleSocketLocation, FVector& OutBeamLocation)
@@ -590,10 +644,41 @@ void AFPSCharacter::TraceForItems()
 		if (TraceUnderCrosshairs(ItemTraceResult, HitLocation))
 		{
 			TraceHitItem = Cast<AItem>(ItemTraceResult.GetActor());
+			const AWeapon* TraceHitWeapon = Cast<AWeapon>(TraceHitItem);
+
+			if (TraceHitItem)
+			{
+				if (HightlightedSlot == -1)
+				{
+					HightlightInventorySlot();
+				}
+			}
+			else
+			{
+				if (HightlightedSlot != -1)
+				{
+					UnHightlightInventorySlot();
+				}
+			}
+
+			if (TraceHitItem && TraceHitItem->GetItemState() == EItemState::EIS_EquipInterping)
+			{
+				TraceHitItem = nullptr;
+			}
+
 			if (TraceHitItem && TraceHitItem->GetPickupWidget())
 			{
 				TraceHitItem->GetPickupWidget()->SetVisibility(true);
 				TraceHitItem->EnableCustomDepth();
+
+				if (Inventory.Num() >= Inventory_Capacity)
+				{
+					TraceHitItem->SetCharacterInventoryFull(true);
+				}
+				else
+				{
+					TraceHitItem->SetCharacterInventoryFull(false);
+				}
 			}
 
 			if (TraceHitItemLastFrame && TraceHitItemLastFrame->GetPickupWidget())
@@ -625,7 +710,7 @@ AWeapon* AFPSCharacter::SpawnDefaultWeapon()
 	return nullptr;
 }
 
-void AFPSCharacter::EquipWeapon(AWeapon* WeaponToEquip)
+void AFPSCharacter::EquipWeapon(AWeapon* WeaponToEquip, bool bSwapping)
 {
 	if (WeaponToEquip)
 	{
@@ -634,6 +719,16 @@ void AFPSCharacter::EquipWeapon(AWeapon* WeaponToEquip)
 		{
 			HandSocket->AttachActor(WeaponToEquip, GetMesh());
 		}
+
+		if (EquippedWeapon == nullptr)
+		{
+			EquipItemDelegate.Broadcast(-1, WeaponToEquip->GetSlotIndex());
+		}
+		else if(!bSwapping)
+		{
+			EquipItemDelegate.Broadcast(EquippedWeapon->GetSlotIndex(), WeaponToEquip->GetSlotIndex());
+		}
+
 		EquippedWeapon = WeaponToEquip;
 		EquippedWeapon->SetItemState(EItemState::EIS_Equipped);
 	}
@@ -652,8 +747,14 @@ void AFPSCharacter::DropWeapon()
 
 void AFPSCharacter::SwapWeapon(AWeapon* WeaponToSwap)
 {
+	if (Inventory.Num() - 1 >= EquippedWeapon->GetSlotIndex())
+	{
+		Inventory[EquippedWeapon->GetSlotIndex()] = WeaponToSwap;
+		WeaponToSwap->SetSlotIndex(EquippedWeapon->GetSlotIndex());
+	}
+
 	DropWeapon();
-	EquipWeapon(WeaponToSwap);
+	EquipWeapon(WeaponToSwap, true);
 	TraceHitItem = nullptr;
 	TraceHitItemLastFrame = nullptr;
 }
@@ -811,6 +912,11 @@ void AFPSCharacter::FinishReloading()
 	}
 }
 
+void AFPSCharacter::FinishEquipping()
+{
+	CombatState = ECombatState::ECS_Unoccupied;
+}
+
 void AFPSCharacter::GrabClip()
 {
 	if (EquippedWeapon == nullptr) return;
@@ -850,6 +956,64 @@ void AFPSCharacter::InterpCapsuleHalfHeight(float DeltaTime)
 	const FVector MeshOffset{ 0.f, 0.f, -DeltaCapsuleHalfHeight };
 	GetMesh() ->AddLocalOffset(MeshOffset);
 	GetCapsuleComponent()->SetCapsuleHalfHeight(InterpHalfHeight);
+}
+
+void AFPSCharacter::ExChangeInventoryItems(int32 CurrentItemIndex, int32 NewItemIndex)
+{
+	const bool bCanExchangeItems = (CurrentItemIndex != NewItemIndex) &&
+		(NewItemIndex < Inventory.Num()) &&
+		(CombatState == ECombatState::ECS_Unoccupied || CombatState == ECombatState::ECS_Equipping);
+
+	if (bCanExchangeItems)
+	{
+		AWeapon* OldEquippedWeapon = EquippedWeapon;
+		AWeapon* NewWeapon = Cast<AWeapon>(Inventory[NewItemIndex]);
+		EquipWeapon(NewWeapon);
+
+		OldEquippedWeapon->SetItemState(EItemState::EIS_PickedUp);
+		NewWeapon->SetItemState(EItemState::EIS_Equipped);
+
+		CombatState = ECombatState::ECS_Equipping;
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+		if (AnimInstance && EquipMontage)
+		{
+			AnimInstance->Montage_Play(EquipMontage, 1.0f);
+			AnimInstance->Montage_JumpToSection(FName("Equip"));
+		}
+
+		NewWeapon->PlayEquipSound(true);
+	}
+}
+
+int32 AFPSCharacter::GetEmptyInventorySlot()
+{
+	for (int32 i = 0; i < Inventory.Num(); i++)
+	{
+		if (Inventory[i] == nullptr)
+		{
+			return i;
+		}
+	}
+
+	if (Inventory.Num() < Inventory_Capacity)
+	{
+		return Inventory.Num();
+	}
+
+	return -1;
+}
+
+void AFPSCharacter::HightlightInventorySlot()
+{
+	const int32 EmptySlot = GetEmptyInventorySlot();
+	HightlightIconDelegate.Broadcast(EmptySlot, true);
+	HightlightedSlot = EmptySlot;
+}
+
+void AFPSCharacter::UnHightlightInventorySlot()
+{
+	HightlightIconDelegate.Broadcast(HightlightedSlot, false);
+	HightlightedSlot = -1;
 }
 
 void AFPSCharacter::ResetPickUpSoundTimer()

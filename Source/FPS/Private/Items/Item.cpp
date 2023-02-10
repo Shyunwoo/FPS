@@ -78,6 +78,7 @@ void AItem::OnSphereEndOverlap(UPrimitiveComponent* OverlappedComponent, AActor*
 		if (FPSCharacter)
 		{
 			FPSCharacter->IncrementOverlappedItemCount(-1);
+			FPSCharacter->UnHightlightInventorySlot();
 		}
 	}
 }
@@ -155,6 +156,19 @@ void AItem::SetItemProperties(EItemState State)
 		CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		break;
 	case EItemState::EIS_PickedUp:
+		PickupWidget->SetVisibility(false);
+
+		ItemMesh->SetSimulatePhysics(false);
+		ItemMesh->SetEnableGravity(false);
+		ItemMesh->SetVisibility(false);
+		ItemMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+		ItemMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+		AreaSphere->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+		AreaSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+		CollisionBox->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+		CollisionBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		break;
 	case EItemState::EIS_Equipped:
 		PickupWidget->SetVisibility(false);
@@ -175,6 +189,7 @@ void AItem::SetItemProperties(EItemState State)
 		ItemMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		ItemMesh->SetSimulatePhysics(true);
 		ItemMesh->SetEnableGravity(true);
+		ItemMesh->SetVisibility(true);
 		ItemMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 		ItemMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_WorldStatic, ECollisionResponse::ECR_Block);
 
@@ -196,7 +211,7 @@ void AItem::FinishInterping()
 	{
 		Character->IncrementInterpLocItemCount(InterpLocIndex, -1);
 		Character->GetPickUpItem(this);
-		SetItemState(EItemState::EIS_PickedUp);
+		Character->UnHightlightInventorySlot();
 	}
 	SetActorScale3D(FVector(1.f));
 
@@ -262,11 +277,18 @@ FVector AItem::GetInterpLocation()
 	return FVector(0.f);
 }
 
-void AItem::PlayPickUpSound()
+void AItem::PlayPickUpSound(bool bForcePlaySound)
 {
 	if (Character)
 	{
-		if (Character->GetShouldPlayPickUpSound())
+		if (bForcePlaySound)
+		{
+			if (PickUpSound)
+			{
+				UGameplayStatics::PlaySound2D(this, PickUpSound);
+			}
+		}
+		else if (Character->GetShouldPlayPickUpSound())
 		{
 			Character->StartPickUpSoundTimer();
 			if (PickUpSound)
@@ -284,12 +306,55 @@ void AItem::InitializeCustomDepth()
 
 void AItem::OnConstruction(const FTransform& Transform)
 {
+	FString RarityTablePath(TEXT("DataTable'/Game/_Game/DataTables/DT_ItemRarity.DT_ItemRarity'"));
+	UDataTable* RarityTableObject = Cast<UDataTable>(StaticLoadObject(UDataTable::StaticClass(), nullptr, *RarityTablePath));
+	if (RarityTableObject)
+	{
+		FItemRarityTable* RarityRow = nullptr;
+
+		switch (ItemRarity)
+		{
+		case EItemRarity::EIR_Damaged:
+			RarityRow = RarityTableObject->FindRow<FItemRarityTable>(FName("Damaged"), TEXT(""));
+			break;
+		case EItemRarity::EIR_Common:
+			RarityRow = RarityTableObject->FindRow<FItemRarityTable>(FName("Common"), TEXT(""));
+			break;
+		case EItemRarity::EIR_Uncommon:
+			RarityRow = RarityTableObject->FindRow<FItemRarityTable>(FName("Uncommon"), TEXT(""));
+			break;
+		case EItemRarity::EIR_Rare:
+			RarityRow = RarityTableObject->FindRow<FItemRarityTable>(FName("Rare"), TEXT(""));
+			break;
+		case EItemRarity::EIR_Legendary:
+			RarityRow = RarityTableObject->FindRow<FItemRarityTable>(FName("Legendary"), TEXT(""));
+			break;
+		default:
+			break;
+		}
+
+		if (RarityRow)
+		{
+			GlowColor = RarityRow->GlowColor;
+			LightColor = RarityRow->LightColor;
+			DarkColor = RarityRow->DarkColor;
+			NumberOfStars = RarityRow->NumberOfStars;
+			IconBackGround = RarityRow->IconBackGround;
+			if (GetItemMesh())
+			{
+				GetItemMesh()->SetCustomDepthStencilValue(RarityRow->CustomDepthStencil);
+			}
+		}
+	}
+
 	if (MaterialInstance)
 	{
 		DynamicMaterialInstance = UMaterialInstanceDynamic::Create(MaterialInstance, this);
+		DynamicMaterialInstance->SetVectorParameterValue(TEXT("FresnelColor"), GlowColor);
 		ItemMesh->SetMaterial(MaterialIndex, DynamicMaterialInstance);
+
+		EnableGlowMaterial();
 	}
-	EnableGlowMaterial();
 }
 
 void AItem::EnableGlowMaterial()
@@ -370,11 +435,18 @@ void AItem::DisableCustomDepth()
 	}
 }
 
-void AItem::PlayEquipSound()
+void AItem::PlayEquipSound(bool bForcePlaySound)
 {
 	if (Character)
 	{
-		if (Character->GetShouldPlayEquipSound())
+		if (bForcePlaySound)
+		{
+			if (EquipSound)
+			{
+				UGameplayStatics::PlaySound2D(this, EquipSound);
+			}
+		}
+		else if (Character->GetShouldPlayEquipSound())
 		{
 			Character->StartEquipSoundTimer();
 			if (EquipSound)
@@ -391,14 +463,14 @@ void AItem::SetItemState(EItemState State)
 	SetItemProperties(State);
 }
 
-void AItem::StartItemCurve(AFPSCharacter* Char)
+void AItem::StartItemCurve(AFPSCharacter* Char, bool bForcePlaySound)
 {
 	Character = Char;
 
 	InterpLocIndex = Character->GetInterpLocationIndex();
 	Character->IncrementInterpLocItemCount(InterpLocIndex, 1);
 
-	PlayPickUpSound();
+	PlayPickUpSound(bForcePlaySound);
 
 	if (Character)
 	{

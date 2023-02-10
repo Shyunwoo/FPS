@@ -13,6 +13,7 @@ enum class ECombatState : uint8
 	ECS_Unoccupied UMETA(DisplayName = "Unoccupied"),
 	ECS_FireTimerInProgress UMETA(DisplayName = "FireTimerInProgress"),
 	ECS_Reloading UMETA(DisplayName = "Reloading"),
+	ECS_Equipping UMETA(DisplayName = "Equipping"),
 
 	ECS_MAX UMETA(DisplayName = "DefaultMAX")
 };
@@ -28,6 +29,9 @@ struct FInterpLocation
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	int32 ItemCount;
 };
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FEquipItemDelegate, int32, CurrentSlotIndex, int32, NewSlotIndex);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FHightlightIconDelegate, int32, SlotIndex, bool, bStartAnimation);
 
 UCLASS()
 class FPS_API AFPSCharacter : public ACharacter
@@ -51,6 +55,8 @@ public:
 	UFUNCTION(BlueprintCallable)
 	float GetCrosshairSpreadMultiplier() const;
 
+	void UnHightlightInventorySlot();
+
 protected:
 	virtual void BeginPlay() override;
 	
@@ -67,6 +73,12 @@ protected:
 	void SelectButtonReleased();
 	void ReloadButtonPressed();
 	void CrouchButtonPressed();
+	void FKeyPressed();
+	void OneKeyPressed();
+	void TwoKeyPressed();
+	void ThreeKeyPressed();
+	void FourKeyPressed();
+	void FiveKeyPressed();
 
 	//Weapon fire
 	bool GetBeamEndLocation(const FVector& MuzzleSocketLocation, FVector& OutBeamLocation);
@@ -98,7 +110,7 @@ protected:
 	bool TraceUnderCrosshairs(FHitResult& OutHitResult, FVector& OutHitLocation);
 	void TraceForItems();
 	class AWeapon* SpawnDefaultWeapon();
-	void EquipWeapon(class AWeapon* WeaponToEquip);
+	void EquipWeapon(class AWeapon* WeaponToEquip, bool bSwapping = false);
 	void DropWeapon();
 	void SwapWeapon(AWeapon* WeaponToSwap);
 	void InitializeAmmoMap();
@@ -112,12 +124,20 @@ protected:
 	void FinishReloading();
 
 	UFUNCTION(BlueprintCallable)
+	void FinishEquipping();
+
+	UFUNCTION(BlueprintCallable)
 	void GrabClip();
 
 	UFUNCTION(BlueprintCallable)
 	void ReleaseClip();
 
 	void InterpCapsuleHalfHeight(float DeltaTime);
+
+	//Widget
+	void ExChangeInventoryItems(int32 CurrentItemIndex, int32 NewItemIndex);
+	int32 GetEmptyInventorySlot();
+	void HightlightInventorySlot();
 
 private:	
 	//Components
@@ -201,6 +221,9 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
 	UAnimMontage* ReloadMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	UAnimMontage* EquipMontage;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess))
 	bool bAiming = false;
@@ -329,6 +352,15 @@ private:
 	TArray<AItem*> Inventory;
 
 	const int32 Inventory_Capacity = 6;
+
+	UPROPERTY(BlueprintAssignable, Category = Delegates, meta = (AllowPrivateAccess))
+	FEquipItemDelegate EquipItemDelegate;
+
+	UPROPERTY(BlueprintAssignable, Category = Delegates, meta = (AllowPrivateAccess))
+	FHightlightIconDelegate HightlightIconDelegate;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Inventory, meta = (AllowPrivateAccess))
+	int32 HightlightedSlot = -1;
 
 public:
 	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }

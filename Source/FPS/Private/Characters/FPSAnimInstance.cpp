@@ -22,6 +22,7 @@ void UFPSAnimInstance::UpdateAnimationProperties(float DeltaTime)
 	{
 		bCrouching = FPSCharacter->GetCrouching();
 		bReloading = FPSCharacter->GetCombatState() == ECombatState::ECS_Reloading;
+		bEquipping = FPSCharacter->GetCombatState() == ECombatState::ECS_Equipping;
 
 		FVector Velocity{ FPSCharacter->GetVelocity() };
 		Velocity.Z = 0.f;
@@ -116,7 +117,7 @@ void UFPSAnimInstance::TurnInPlace()
 	}
 	if (bTurningInPlace)
 	{
-		if (bReloading)
+		if (bReloading || bEquipping)
 		{
 			RecoilWeight = 1.f;
 		}
@@ -129,7 +130,7 @@ void UFPSAnimInstance::TurnInPlace()
 	{
 		if (bCrouching)
 		{
-			if (bReloading)
+			if (bReloading || bEquipping)
 			{
 				RecoilWeight = 1.f;
 			}
@@ -140,7 +141,7 @@ void UFPSAnimInstance::TurnInPlace()
 		}
 		else
 		{
-			if (bAiming || bReloading)
+			if (bAiming || bReloading || bEquipping)
 			{
 				RecoilWeight = 1.f;
 			}
