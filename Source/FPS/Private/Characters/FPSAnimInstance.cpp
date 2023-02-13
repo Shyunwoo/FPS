@@ -5,6 +5,7 @@
 #include "Characters/FPSCharacter.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Items/Weapon.h"
 
 void UFPSAnimInstance::NativeInitializeAnimation()
 {
@@ -23,6 +24,7 @@ void UFPSAnimInstance::UpdateAnimationProperties(float DeltaTime)
 		bCrouching = FPSCharacter->GetCrouching();
 		bReloading = FPSCharacter->GetCombatState() == ECombatState::ECS_Reloading;
 		bEquipping = FPSCharacter->GetCombatState() == ECombatState::ECS_Equipping;
+		bShouldUseFABRIK = (FPSCharacter->GetCombatState() == ECombatState::ECS_Equipping) || (FPSCharacter->GetCombatState() == ECombatState::ECS_FireTimerInProgress);
 
 		FVector Velocity{ FPSCharacter->GetVelocity() };
 		Velocity.Z = 0.f;
@@ -65,6 +67,11 @@ void UFPSAnimInstance::UpdateAnimationProperties(float DeltaTime)
 		else
 		{
 			OffsetState = EOffsetState::EOS_Hip;
+		}
+
+		if (FPSCharacter->GetEquippedWeapon())
+		{
+			EquippedWeaponType = FPSCharacter->GetEquippedWeapon()->GetWeaponType();
 		}
 	}
 	TurnInPlace();

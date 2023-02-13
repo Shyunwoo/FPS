@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimInstance.h"
+#include "WeaponType.h"
 #include "FPSAnimInstance.generated.h"
 
 UENUM(BlueprintType)
@@ -90,4 +91,10 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Turn, meta = (AllowPrivateAccess))
 	EOffsetState OffsetState = EOffsetState::EOS_Hip;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	EWeaponType EquippedWeaponType = EWeaponType::EWT_MAX;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	bool bShouldUseFABRIK = false;
 };

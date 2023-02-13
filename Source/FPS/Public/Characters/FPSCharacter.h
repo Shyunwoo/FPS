@@ -371,4 +371,5 @@ public:
 	FORCEINLINE bool GetCrouching() const {return bCrouching;}
 	FORCEINLINE bool GetShouldPlayPickUpSound() const { return bShouldPlayPickUpSound; }
 	FORCEINLINE bool GetShouldPlayEquipSound() const { return bShouldPlayEquipSound; }
+	FORCEINLINE AWeapon* GetEquippedWeapon() const { return EquippedWeapon; }
 };
