@@ -147,9 +147,6 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess))
 	class UCameraComponent* FollowCamera;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
-	class USoundCue* FireSound;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess))
 	USceneComponent* HandSceneComponent;
 
@@ -175,9 +172,6 @@ private:
 	USceneComponent* InterpCom6;
 
 	//Particles
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
-	class UParticleSystem* MuzzleFlash;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
 	UParticleSystem* ImpactParticles;
 
@@ -264,7 +258,6 @@ private:
 	//Auto firing
 	bool bFireButtonPressed = false;
 	bool bShouldFire = true;
-	float AutomaticFireRate = 0.1f;
 	FTimerHandle AutoFireTimer;
 
 	//Items

@@ -473,9 +473,9 @@ void AFPSCharacter::FireButtonReleased()
 
 void AFPSCharacter::PlayFireSound()
 {
-	if (FireSound)
+	if (EquippedWeapon->GetFireSound())
 	{
-		UGameplayStatics::PlaySound2D(this, FireSound);
+		UGameplayStatics::PlaySound2D(this, EquippedWeapon->GetFireSound());
 	}
 }
 
@@ -486,9 +486,9 @@ void AFPSCharacter::SendBullet()
 	{
 		const FTransform SocketTransform = BarrelSocket->GetSocketTransform(EquippedWeapon->GetItemMesh());
 		UWorld* World = GetWorld();
-		if (MuzzleFlash && World)
+		if (EquippedWeapon->GetMuzzleFlash() && World)
 		{
-			UGameplayStatics::SpawnEmitterAtLocation(World, MuzzleFlash, SocketTransform);
+			UGameplayStatics::SpawnEmitterAtLocation(World, EquippedWeapon->GetMuzzleFlash(), SocketTransform);
 		}
 
 		FVector BeamEnd;
@@ -559,9 +559,11 @@ void AFPSCharacter::InitializeInterpLocations()
 
 void AFPSCharacter::StartFireTimer()
 {
+	if (EquippedWeapon == nullptr) return;
+
 	CombatState = ECombatState::ECS_FireTimerInProgress;
 
-	GetWorldTimerManager().SetTimer(AutoFireTimer, this, &AFPSCharacter::AutoFireReset, AutomaticFireRate);
+	GetWorldTimerManager().SetTimer(AutoFireTimer, this, &AFPSCharacter::AutoFireReset, EquippedWeapon->GetAutoFireRate());
 }
 
 void AFPSCharacter::AutoFireReset()
