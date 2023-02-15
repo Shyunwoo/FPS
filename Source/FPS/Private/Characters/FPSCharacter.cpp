@@ -251,6 +251,7 @@ void AFPSCharacter::FireWeapon()
 {
 	if (EquippedWeapon == nullptr) return;
 	if (CombatState != ECombatState::ECS_Unoccupied) return;
+
 	if (WeaponHasAmmo())
 	{
 		PlayFireSound();
@@ -259,6 +260,11 @@ void AFPSCharacter::FireWeapon()
 		StartCrosshairBulletFire();
 		EquippedWeapon->DecrementAmmo();
 		StartFireTimer();
+
+		if (EquippedWeapon->GetWeaponType() == EWeaponType::EWT_Pistol)
+		{
+			EquippedWeapon->StartSlideTimer();
+		}
 	}
 }
 
@@ -377,7 +383,7 @@ void AFPSCharacter::AimingButtonPressed()
 {
 	bAimingButtonPressed = true;
 
-	if (CombatState != ECombatState::ECS_Reloading)
+	if (CombatState != ECombatState::ECS_Reloading && CombatState != ECombatState::ECS_Equipping)
 	{
 		Aim();
 	}
@@ -569,10 +575,11 @@ void AFPSCharacter::StartFireTimer()
 void AFPSCharacter::AutoFireReset()
 {
 	CombatState = ECombatState::ECS_Unoccupied;
+	if (EquippedWeapon == nullptr) return;
 
 	if (WeaponHasAmmo())
 	{
-		if (bFireButtonPressed)
+		if (bFireButtonPressed && EquippedWeapon->GetAutomatic())
 		{
 			FireWeapon();
 		}
@@ -917,6 +924,11 @@ void AFPSCharacter::FinishReloading()
 void AFPSCharacter::FinishEquipping()
 {
 	CombatState = ECombatState::ECS_Unoccupied;
+
+	if (bAimingButtonPressed)
+	{
+		Aim();
+	}
 }
 
 void AFPSCharacter::GrabClip()
@@ -968,6 +980,11 @@ void AFPSCharacter::ExChangeInventoryItems(int32 CurrentItemIndex, int32 NewItem
 
 	if (bCanExchangeItems)
 	{
+		if (bAiming)
+		{
+			StopAiming();
+		}
+
 		AWeapon* OldEquippedWeapon = EquippedWeapon;
 		AWeapon* NewWeapon = Cast<AWeapon>(Inventory[NewItemIndex]);
 		EquipWeapon(NewWeapon);

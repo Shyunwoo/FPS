@@ -17,6 +17,8 @@ void AWeapon::Tick(float DeltaTime)
 		const FRotator MeshRotation{0.f, GetItemMesh()->GetComponentRotation().Yaw, 0.f };
 		GetItemMesh()->SetWorldRotation(MeshRotation, false, nullptr, ETeleportType::TeleportPhysics);
 	}
+
+	UpdateSlideDisplacement();
 }
 
 void AWeapon::ThrowWeapon()
@@ -62,6 +64,12 @@ bool AWeapon::ClipIsFull()
 	return Ammo >= MagazineCapacity;
 }
 
+void AWeapon::StartSlideTimer()
+{
+	bMovingSlide = true;
+	GetWorldTimerManager().SetTimer(SlideTimer, this, &AWeapon::FinishMovingSlide, SlideDisplacementTime);
+}
+
 void AWeapon::StopFalling()
 {
 	bFalling = false;
@@ -86,6 +94,9 @@ void AWeapon::OnConstruction(const FTransform& Transform)
 			break;
 		case EWeaponType::EWT_AssaultRifle:
 			WeaponDataRow = WeaponTableObject->FindRow<FWeaponDataTable>(FName("AssaultRifle"), TEXT(""));
+			break;
+		case EWeaponType::EWT_Pistol:
+			WeaponDataRow = WeaponTableObject->FindRow<FWeaponDataTable>(FName("Pistol"), TEXT(""));
 			break;
 		default:
 			break;
@@ -120,6 +131,8 @@ void AWeapon::OnConstruction(const FTransform& Transform)
 			AutoFireRate = WeaponDataRow->AutoFireRate;
 			MuzzleFlash = WeaponDataRow->MuzzleFlash;
 			FireSound = WeaponDataRow->FireSound;
+			BoneToHide = WeaponDataRow->BoneToHide;
+			bAutomatic = WeaponDataRow->bAutomatic;
 		}
 
 		if (GetMaterialInstance())
@@ -130,5 +143,31 @@ void AWeapon::OnConstruction(const FTransform& Transform)
 
 			EnableGlowMaterial();
 		}
+	}
+}
+
+void AWeapon::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (BoneToHide != FName(""))
+	{
+		GetItemMesh()->HideBoneByName(BoneToHide, EPhysBodyOp::PBO_None);
+	}
+}
+
+void AWeapon::FinishMovingSlide()
+{
+	bMovingSlide = false;
+}
+
+void AWeapon::UpdateSlideDisplacement()
+{
+	if (SlideDisplacementCurve && bMovingSlide)
+	{
+		const float ElapsedTime = GetWorldTimerManager().GetTimerElapsed(SlideTimer);
+		const float CurveValue = SlideDisplacementCurve->GetFloatValue(ElapsedTime);
+		SlideDisplacement = CurveValue * MaxSlideDisplacement;
+		RecoilRotation = CurveValue * MaxRecoilRotation;
 	}
 }
