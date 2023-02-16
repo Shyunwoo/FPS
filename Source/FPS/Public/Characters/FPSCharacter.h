@@ -139,6 +139,9 @@ protected:
 	int32 GetEmptyInventorySlot();
 	void HightlightInventorySlot();
 
+	UFUNCTION(BlueprintCallable)
+	EPhysicalSurface GetSurfaceType();
+
 private:	
 	//Components
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess))
