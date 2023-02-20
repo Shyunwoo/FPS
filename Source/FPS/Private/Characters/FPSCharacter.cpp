@@ -19,6 +19,8 @@
 #include "Items/Ammo.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
 #include "FPS/FPS.h"
+#include "Interfaces/BulletHitInterface.h"
+#include "Enemies/Emeny.h"
 
 AFPSCharacter::AFPSCharacter()
 {
@@ -350,9 +352,11 @@ void AFPSCharacter::FiveKeyPressed()
 	ExChangeInventoryItems(EquippedWeapon->GetSlotIndex(), 5);
 }
 
-bool AFPSCharacter::GetBeamEndLocation(const FVector& MuzzleSocketLocation, FVector& OutBeamLocation)
+bool AFPSCharacter::GetBeamEndLocation(const FVector& MuzzleSocketLocation, FHitResult& OutHitResult)
 {
+	FVector OutBeamLocation;
 	FHitResult CrosshaurHitResult;
+	
 	bool bCrosshairHit = TraceUnderCrosshairs(CrosshaurHitResult, OutBeamLocation);
 
 	if (bCrosshairHit)
@@ -360,25 +364,25 @@ bool AFPSCharacter::GetBeamEndLocation(const FVector& MuzzleSocketLocation, FVec
 		OutBeamLocation = CrosshaurHitResult.Location;
 	}
 
-	FHitResult WeaponTraceHit;
+	
 	const FVector WeaponTraceStart = MuzzleSocketLocation;
 	const FVector StartToEnd = OutBeamLocation - MuzzleSocketLocation;
 	const FVector WeaponTraceEnd = MuzzleSocketLocation + StartToEnd * 1.25f;
 
 	GetWorld()->LineTraceSingleByChannel(
-		WeaponTraceHit,
+		OutHitResult,
 		WeaponTraceStart,
 		WeaponTraceEnd,
 		ECollisionChannel::ECC_Visibility
 	);
 
-	if (WeaponTraceHit.bBlockingHit)
+	if (!OutHitResult.bBlockingHit)
 	{
-		OutBeamLocation = WeaponTraceHit.Location;
-		return true;
+		OutHitResult.Location = OutBeamLocation;
+		return false;
 	}
 
-	return false;
+	return true;
 }
 
 void AFPSCharacter::AimingButtonPressed()
@@ -499,13 +503,37 @@ void AFPSCharacter::SendBullet()
 			UGameplayStatics::SpawnEmitterAtLocation(World, EquippedWeapon->GetMuzzleFlash(), SocketTransform);
 		}
 
-		FVector BeamEnd;
-		bool bBeamEnd = GetBeamEndLocation(SocketTransform.GetLocation(), BeamEnd);
+		FHitResult BeamHitResult;
+		bool bBeamEnd = GetBeamEndLocation(SocketTransform.GetLocation(), BeamHitResult);
 		if (bBeamEnd)
 		{
-			if (ImpactParticles)
+			if (BeamHitResult.Actor.IsValid())
 			{
-				UGameplayStatics::SpawnEmitterAtLocation(World, ImpactParticles, BeamEnd);
+				IBulletHitInterface* BulletHitInterface = Cast<IBulletHitInterface>(BeamHitResult.Actor.Get());
+				if (BulletHitInterface)
+				{
+					BulletHitInterface->BulletHit_Implementation(BeamHitResult);
+				}
+
+				AEmeny* HitEnemy = Cast<AEmeny>(BeamHitResult.Actor.Get());
+				if (HitEnemy)
+				{
+					if (BeamHitResult.BoneName.ToString() == HitEnemy->GetHeadBone())
+					{
+						UGameplayStatics::ApplyDamage(BeamHitResult.Actor.Get(), EquippedWeapon->GetHeadShotDamage(), GetController(), this, UDamageType::StaticClass());
+					}
+					else
+					{
+						UGameplayStatics::ApplyDamage(BeamHitResult.Actor.Get(), EquippedWeapon->GetDamage(), GetController(), this, UDamageType::StaticClass());
+					}		
+				}
+			}
+			else
+			{
+				if (ImpactParticles)
+				{
+					UGameplayStatics::SpawnEmitterAtLocation(World, ImpactParticles, BeamHitResult.Location);
+				}
 			}
 
 			if (BeamParticles)
@@ -514,7 +542,7 @@ void AFPSCharacter::SendBullet()
 
 				if (Beam)
 				{
-					Beam->SetVectorParameter(FName("Target"), BeamEnd);
+					Beam->SetVectorParameter(FName("Target"), BeamHitResult.Location);
 				}
 			}
 		}
