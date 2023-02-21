@@ -5,6 +5,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundCue.h"
 #include "Particles/ParticleSystemComponent.h"
+#include "Blueprint/UserWidget.h"
 
 AEmeny::AEmeny()
 {
@@ -30,10 +31,62 @@ void AEmeny::Die()
 	HideHealthBar();
 }
 
+void AEmeny::PlayHitMontage(FName Section, float PlayRate)
+{
+	if (bCanHitReact)
+	{
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+		if (AnimInstance && HitMontage)
+		{
+			AnimInstance->Montage_Play(HitMontage, PlayRate);
+			AnimInstance->Montage_JumpToSection(Section, HitMontage);
+		}
+	}
+	
+	bCanHitReact = false;
+	const float HitReactTime = FMath::FRandRange(HitReactTimeMin, HitReactTimeMax);
+	GetWorldTimerManager().SetTimer(HitReactTimer, this, &AEmeny::ResetHitReactTimer, HitReactTime);
+}
+
+void AEmeny::ResetHitReactTimer()
+{
+	bCanHitReact = true;
+}
+
+void AEmeny::StoreHitNumber(UUserWidget* HitNumber, FVector Location)
+{
+	HitNumbers.Add(HitNumber, Location);
+
+	FTimerHandle HitNumberTimer;
+	FTimerDelegate HitNumberDelegate;
+	HitNumberDelegate.BindUFunction(this, FName("DestroyHitNumber"), HitNumber);
+	GetWorld()->GetTimerManager().SetTimer(HitNumberTimer, HitNumberDelegate, HitNumberDestroyTime, false);
+}
+
+void AEmeny::DestroyHitNumber(UUserWidget* HitNumber)
+{
+	HitNumbers.Remove(HitNumber);
+	HitNumber->RemoveFromParent();
+}
+
+void AEmeny::UpdateHitNumbers()
+{
+	for (auto& HitPair: HitNumbers)
+	{
+		UUserWidget* HitNumber = HitPair.Key;
+		const FVector Location = HitPair.Value;
+		FVector2D ScreenPosition;
+		UGameplayStatics::ProjectWorldToScreen(GetWorld()->GetFirstPlayerController(), Location, ScreenPosition);
+
+		HitNumber->SetPositionInViewport(ScreenPosition);
+	}
+}
+
 void AEmeny::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	UpdateHitNumbers();
 }
 
 float AEmeny::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
@@ -62,5 +115,6 @@ void AEmeny::BulletHit_Implementation(FHitResult HitResult)
 		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactParticles, HitResult.Location, FRotator(0.f), true);
 	}
 	ShowHealthBar();
+	PlayHitMontage(FName("HitReactFront"));
 }
 
