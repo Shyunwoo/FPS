@@ -13,6 +13,8 @@
 #include "Components/SphereComponent.h"
 #include "Characters/FPSCharacter.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/BoxComponent.h"
+#include "Engine/SkeletalMeshSocket.h"
 
 AEmeny::AEmeny()
 {
@@ -23,6 +25,11 @@ AEmeny::AEmeny()
 	
 	CombatRangeSphere = CreateDefaultSubobject<USphereComponent>(TEXT("CombatRangeSphere"));
 	CombatRangeSphere->SetupAttachment(GetRootComponent());
+
+	RightWeaponCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("RightWeaponCollision"));
+	RightWeaponCollision->SetupAttachment(GetMesh(), FName("RightWeaponBone"));
+	LeftWeaponCollision = CreateDefaultSubobject<UBoxComponent>(TEXT("LeftWeaponCollision"));
+	LeftWeaponCollision->SetupAttachment(GetMesh(), FName("LeftWeaponBone"));
 }
 
 void AEmeny::BeginPlay()
@@ -32,17 +39,31 @@ void AEmeny::BeginPlay()
 	AgroSphere->OnComponentBeginOverlap.AddDynamic(this, &AEmeny::AgroSphereOverlap);
 	CombatRangeSphere->OnComponentBeginOverlap.AddDynamic(this, &AEmeny::CombatRangeOverlap);
 	CombatRangeSphere->OnComponentEndOverlap.AddDynamic(this, &AEmeny::CombatRangeEndOverlap);
+	RightWeaponCollision->OnComponentBeginOverlap.AddDynamic(this, &AEmeny::OnRightWeaponOverlap);
+	LeftWeaponCollision->OnComponentBeginOverlap.AddDynamic(this, &AEmeny::OnLeftWeaponOverlap);
 	
+	RightWeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	RightWeaponCollision->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
+	RightWeaponCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+	RightWeaponCollision->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
+	LeftWeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	LeftWeaponCollision->SetCollisionObjectType(ECollisionChannel::ECC_WorldDynamic);
+	LeftWeaponCollision->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
+	LeftWeaponCollision->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Overlap);
+
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
 	GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 
 	EnemyController = Cast<AEnemyController>(GetController());
 
+	if (EnemyController)
+	{
+		EnemyController->GetBlackboardComponent()->SetValueAsBool(FName("CanAttack"), true);
+	}
+
 	const FVector WorldPatrolPoint = UKismetMathLibrary::TransformLocation(GetActorTransform(), PatrolPoint);
 	const FVector WorldPatrolPoint2 = UKismetMathLibrary::TransformLocation(GetActorTransform(), PatrolPoint2);
-	DrawDebugSphere(GetWorld(), WorldPatrolPoint, 25.f, 12, FColor::Red, true);
-	DrawDebugSphere(GetWorld(), WorldPatrolPoint2, 25.f, 12, FColor::Red, true);
 
 	if (EnemyController)
 	{
@@ -50,6 +71,13 @@ void AEmeny::BeginPlay()
 		EnemyController->GetBlackboardComponent()->SetValueAsVector(TEXT("PatrolPoint2"), WorldPatrolPoint2);
 		EnemyController->RunBehaviorTree(BehaviorTree);
 	}
+}
+
+void AEmeny::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	UpdateHitNumbers();
 }
 
 void AEmeny::ShowHealthBar_Implementation()
@@ -183,6 +211,13 @@ void AEmeny::PlayAttackMontage(FName Section, float PlayRate)
 		AnimInstance->Montage_Play(AttackMontage, PlayRate);
 		AnimInstance->Montage_JumpToSection(Section, AttackMontage);
 	}
+	bCanAttack = false;
+	GetWorldTimerManager().SetTimer(AttackWaitTimer, this, &AEmeny::ResetCanAttack, AttackWaitTime);
+	
+	if (EnemyController)
+	{
+		EnemyController->GetBlackboardComponent()->SetValueAsBool(FName("CanAttack"), false);
+	}
 }
 
 FName AEmeny::GetAttackSectionName()
@@ -210,15 +245,104 @@ FName AEmeny::GetAttackSectionName()
 	return SectionName;
 }
 
-void AEmeny::Tick(float DeltaTime)
+void AEmeny::OnRightWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	Super::Tick(DeltaTime);
+	AFPSCharacter* Character = Cast<AFPSCharacter>(OtherActor);
 
-	UpdateHitNumbers();
+	if (Character)
+	{
+		DoDamage(Character);
+		SpawnBlood(Character, RightWeaponSocket);
+		StunCharacter(Character);
+	}
+}
+
+void AEmeny::OnLeftWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	AFPSCharacter* Character = Cast<AFPSCharacter>(OtherActor);
+
+	if (Character)
+	{
+		DoDamage(Character);
+		SpawnBlood(Character, LeftWeaponSocket);
+		StunCharacter(Character);
+	}
+}
+
+void AEmeny::ActivateLeftWeapon()
+{
+	LeftWeaponCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+}
+
+void AEmeny::DeactivateLeftWeapon()
+{
+	LeftWeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+}
+
+void AEmeny::ActivateRightWeapon()
+{
+	RightWeaponCollision->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+}
+
+void AEmeny::DeactivateRightWeapon()
+{
+	RightWeaponCollision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+}
+
+void AEmeny::DoDamage(AFPSCharacter* Victim)
+{
+	if (Victim == nullptr) return;
+
+	UGameplayStatics::ApplyDamage(Victim, BaseDamage, EnemyController, this, UDamageType::StaticClass());
+
+	if (Victim->GetMeleeImpactSound())
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, Victim->GetMeleeImpactSound(), GetActorLocation());
+	}
+}
+
+void AEmeny::SpawnBlood(AFPSCharacter* Victim, FName SocketName)
+{
+	const USkeletalMeshSocket* TipSocket = GetMesh()->GetSocketByName(SocketName);
+	if (TipSocket)
+	{
+		const FTransform SocketTransform = TipSocket->GetSocketTransform(GetMesh());
+		if (Victim->GetBloodParticles())
+		{
+			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), Victim->GetBloodParticles(), SocketTransform);
+		}
+	}
+}
+
+void AEmeny::StunCharacter(AFPSCharacter* Victim)
+{
+	if (Victim)
+	{
+		const float Stun = FMath::RandRange(0.f, 1.f);
+		if (Stun <= Victim->GetStunChance())
+		{
+			Victim->Stun();
+		}
+	}
+}
+
+void AEmeny::ResetCanAttack()
+{
+	bCanAttack = true;
+
+	if (EnemyController)
+	{
+		EnemyController->GetBlackboardComponent()->SetValueAsBool(FName("CanAttack"), true);
+	}
 }
 
 float AEmeny::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
+	if (EnemyController && DamageCauser)
+	{
+		EnemyController->GetBlackboardComponent()->SetValueAsObject(FName("Target"), DamageCauser);
+	}
+
 	if (Health - DamageAmount <= 0.f)
 	{
 		Health = 0.f;

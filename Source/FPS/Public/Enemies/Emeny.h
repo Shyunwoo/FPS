@@ -66,6 +66,30 @@ protected:
 	UFUNCTION(BlueprintPure)
 	FName GetAttackSectionName();
 
+	UFUNCTION()
+	void OnRightWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void OnLeftWeaponOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION(BlueprintCallable)
+	void ActivateLeftWeapon();
+
+	UFUNCTION(BlueprintCallable)
+	void DeactivateLeftWeapon();
+
+	UFUNCTION(BlueprintCallable)
+	void ActivateRightWeapon();
+
+	UFUNCTION(BlueprintCallable)
+	void DeactivateRightWeapon();
+
+	void DoDamage(class AFPSCharacter* Victim);
+	void SpawnBlood(AFPSCharacter* Victim, FName SocketName);
+	void StunCharacter(AFPSCharacter* Victim);
+
+	void ResetCanAttack();
+
 private:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
 	class UParticleSystem* ImpactParticles;
@@ -139,6 +163,29 @@ private:
 	FName AttackRFast = FName("AttackRFast");
 	FName AttackL = FName("AttackL");
 	FName AttackR = FName("AttackR");
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	class UBoxComponent* RightWeaponCollision;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	UBoxComponent* LeftWeaponCollision;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	float BaseDamage = 20.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	FName LeftWeaponSocket = FName("FX_Trail_L_01");
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	FName RightWeaponSocket = FName("FX_Trail_R_01");
+
+	UPROPERTY(VisibleAnywhere, Category = Combat, meta = (AllowPrivateAccess))
+	bool bCanAttack = true;
+
+	FTimerHandle AttackWaitTimer;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	float AttackWaitTime = 1.f;
 
 public:
 	FORCEINLINE FString GetHeadBone() const { return HeadBone; }

@@ -389,7 +389,7 @@ void AFPSCharacter::AimingButtonPressed()
 {
 	bAimingButtonPressed = true;
 
-	if (CombatState != ECombatState::ECS_Reloading && CombatState != ECombatState::ECS_Equipping)
+	if (CombatState != ECombatState::ECS_Reloading && CombatState != ECombatState::ECS_Equipping && CombatState != ECombatState::ECS_Stunned)
 	{
 		Aim();
 	}
@@ -611,6 +611,8 @@ void AFPSCharacter::StartFireTimer()
 
 void AFPSCharacter::AutoFireReset()
 {
+	if (CombatState == ECombatState::ECS_Stunned) return;
+
 	CombatState = ECombatState::ECS_Unoccupied;
 	if (EquippedWeapon == nullptr) return;
 
@@ -926,6 +928,8 @@ void AFPSCharacter::StartEquipSoundTimer()
 
 void AFPSCharacter::FinishReloading()
 {
+	if (CombatState == ECombatState::ECS_Stunned) return;
+
 	CombatState = ECombatState::ECS_Unoccupied;
 
 	if (bAimingButtonPressed)
@@ -960,6 +964,8 @@ void AFPSCharacter::FinishReloading()
 
 void AFPSCharacter::FinishEquipping()
 {
+	if (CombatState == ECombatState::ECS_Stunned) return;
+
 	CombatState = ECombatState::ECS_Unoccupied;
 
 	if (bAimingButtonPressed)
@@ -1079,10 +1085,45 @@ EPhysicalSurface AFPSCharacter::GetSurfaceType()
 	return UPhysicalMaterial::DetermineSurfaceType(HitResult.PhysMaterial.Get());
 }
 
+void AFPSCharacter::EndStun()
+{
+	CombatState = ECombatState::ECS_Unoccupied;
+
+	if (bAimingButtonPressed)
+	{
+		Aim();
+	}
+}
+
 void AFPSCharacter::UnHightlightInventorySlot()
 {
 	HightlightIconDelegate.Broadcast(HightlightedSlot, false);
 	HightlightedSlot = -1;
+}
+
+float AFPSCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
+{
+	if (Health - DamageAmount <= 0.f)
+	{
+		Health = 0.f;
+	}
+	else
+	{
+		Health -= DamageAmount;
+	}
+
+	return DamageAmount;
+}
+
+void AFPSCharacter::Stun()
+{
+	CombatState = ECombatState::ECS_Stunned;
+
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && HitReactMontage)
+	{
+		AnimInstance->Montage_Play(HitReactMontage);
+	}
 }
 
 void AFPSCharacter::ResetPickUpSoundTimer()

@@ -14,6 +14,7 @@ enum class ECombatState : uint8
 	ECS_FireTimerInProgress UMETA(DisplayName = "FireTimerInProgress"),
 	ECS_Reloading UMETA(DisplayName = "Reloading"),
 	ECS_Equipping UMETA(DisplayName = "Equipping"),
+	ECS_Stunned UMETA(DisplayName = "Stunned"),
 
 	ECS_MAX UMETA(DisplayName = "DefaultMAX")
 };
@@ -56,6 +57,10 @@ public:
 	float GetCrosshairSpreadMultiplier() const;
 
 	void UnHightlightInventorySlot();
+
+	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, AActor* DamageCauser)override;
+
+	void Stun();
 
 protected:
 	virtual void BeginPlay() override;
@@ -142,6 +147,9 @@ protected:
 	UFUNCTION(BlueprintCallable)
 	EPhysicalSurface GetSurfaceType();
 
+	UFUNCTION(BlueprintCallable)
+	void EndStun();
+
 private:	
 	//Components
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess))
@@ -221,6 +229,9 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
 	UAnimMontage* EquipMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	UAnimMontage* HitReactMontage;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess))
 	bool bAiming = false;
@@ -358,6 +369,22 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Inventory, meta = (AllowPrivateAccess))
 	int32 HightlightedSlot = -1;
 
+	//Attributes
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	float Health = 100.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	float MaxHealth = 100.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	class USoundCue* MeleeImpactSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	class UParticleSystem* BloodParticles;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	float StunChance = 0.25f;
+
 public:
 	FORCEINLINE USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	FORCEINLINE UCameraComponent* GetFollowCamera() const { return FollowCamera; }
@@ -368,4 +395,7 @@ public:
 	FORCEINLINE bool GetShouldPlayPickUpSound() const { return bShouldPlayPickUpSound; }
 	FORCEINLINE bool GetShouldPlayEquipSound() const { return bShouldPlayEquipSound; }
 	FORCEINLINE AWeapon* GetEquippedWeapon() const { return EquippedWeapon; }
+	FORCEINLINE USoundCue* GetMeleeImpactSound() const {return MeleeImpactSound;}
+	FORCEINLINE UParticleSystem* GetBloodParticles() const { return BloodParticles; }
+	FORCEINLINE float GetStunChance() const {return StunChance;}
 };
