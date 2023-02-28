@@ -5,11 +5,18 @@
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundCue.h"
 #include "Particles/ParticleSystemComponent.h"
+#include "Components/SphereComponent.h"
+#include "GameFramework/Character.h"
 
 AExplosive::AExplosive()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
+	ExplosiveMesh = CreateDefaultSubobject<UStaticMeshComponent>("ExplosiveMesh");
+	SetRootComponent(ExplosiveMesh);
+
+	OverlapSphere = CreateDefaultSubobject<USphereComponent>("OverlapSphere");
+	OverlapSphere->SetupAttachment(GetRootComponent());
 }
 
 void AExplosive::BeginPlay()
@@ -24,7 +31,7 @@ void AExplosive::Tick(float DeltaTime)
 
 }
 
-void AExplosive::BulletHit_Implementation(FHitResult HitResult)
+void AExplosive::BulletHit_Implementation(FHitResult HitResult, AActor* Shooter, AController* ShooterController)
 {
 	if (ImpactSound)
 	{
@@ -35,7 +42,13 @@ void AExplosive::BulletHit_Implementation(FHitResult HitResult)
 		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ExplodeParticles, HitResult.Location, FRotator(0.f), true);
 	}
 
+	TArray<AActor*> OverlappingActors;
+	GetOverlappingActors(OverlappingActors, ACharacter::StaticClass());
 
+	for (AActor* Actor : OverlappingActors)
+	{
+		UGameplayStatics::ApplyDamage(Actor, Damage, ShooterController, Shooter, UDamageType::StaticClass());
+	}
 
 	Destroy();
 }

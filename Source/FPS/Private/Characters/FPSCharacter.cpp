@@ -8,7 +8,6 @@
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundCue.h"
 #include "Engine/SkeletalMeshSocket.h"
-#include "DrawDebugHelpers.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "Items/Item.h"
 #include "Components/WidgetComponent.h"
@@ -21,6 +20,8 @@
 #include "FPS/FPS.h"
 #include "Interfaces/BulletHitInterface.h"
 #include "Enemies/Emeny.h"
+#include "Enemies/EnemyController.h"
+#include "BehaviorTree/BlackboardComponent.h"
 
 AFPSCharacter::AFPSCharacter()
 {
@@ -512,7 +513,7 @@ void AFPSCharacter::SendBullet()
 				IBulletHitInterface* BulletHitInterface = Cast<IBulletHitInterface>(BeamHitResult.Actor.Get());
 				if (BulletHitInterface)
 				{
-					BulletHitInterface->BulletHit_Implementation(BeamHitResult);
+					BulletHitInterface->BulletHit_Implementation(BeamHitResult, this, GetController());
 				}
 
 				AEmeny* HitEnemy = Cast<AEmeny>(BeamHitResult.Actor.Get());
@@ -1095,6 +1096,26 @@ void AFPSCharacter::EndStun()
 	}
 }
 
+void AFPSCharacter::Die()
+{
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && DeathMontage)
+	{
+		AnimInstance->Montage_Play(DeathMontage);
+	}
+}
+
+void AFPSCharacter::FinishDeath()
+{
+	GetMesh()->bPauseAnims = true;
+	APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0);
+
+	if (PlayerController)
+	{
+		DisableInput(PlayerController);
+	}
+}
+
 void AFPSCharacter::UnHightlightInventorySlot()
 {
 	HightlightIconDelegate.Broadcast(HightlightedSlot, false);
@@ -1106,6 +1127,13 @@ float AFPSCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 	if (Health - DamageAmount <= 0.f)
 	{
 		Health = 0.f;
+		Die();
+
+		AEnemyController* EnemyController = Cast<AEnemyController>(EventInstigator);
+		if (EnemyController)
+		{
+			EnemyController->GetBlackboardComponent()->SetValueAsBool(TEXT("CharacterDead"), true);
+		}
 	}
 	else
 	{
@@ -1117,6 +1145,8 @@ float AFPSCharacter::TakeDamage(float DamageAmount, FDamageEvent const& DamageEv
 
 void AFPSCharacter::Stun()
 {
+	if (Health <= 0.f) return;
+
 	CombatState = ECombatState::ECS_Stunned;
 
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();

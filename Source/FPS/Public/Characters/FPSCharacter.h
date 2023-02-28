@@ -150,6 +150,11 @@ protected:
 	UFUNCTION(BlueprintCallable)
 	void EndStun();
 
+	void Die();
+
+	UFUNCTION(BlueprintCallable)
+	void FinishDeath();
+
 private:	
 	//Components
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess))
@@ -232,6 +237,9 @@ private:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
 	UAnimMontage* HitReactMontage;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Combat, meta = (AllowPrivateAccess))
+	UAnimMontage* DeathMontage;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Combat, meta = (AllowPrivateAccess))
 	bool bAiming = false;
