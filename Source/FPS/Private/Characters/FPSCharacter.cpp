@@ -1098,6 +1098,8 @@ void AFPSCharacter::EndStun()
 
 void AFPSCharacter::Die()
 {
+	bDead = true;
+
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 	if (AnimInstance && DeathMontage)
 	{
